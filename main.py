@@ -219,7 +219,7 @@ class HtmlRichTextConverter(QDialog):
         # 彻底废弃 SelectAll -> Copy -> Unselect 的异步不确定流程
         mime_data = QMimeData()
         
-        # 构建标准 HTML 包裹，确保 Obsidian 或 Word 能识别
+        # 构建标准 HTML 包裹，确保 Obsidian 能识别
         final_html = f"<html><body>{self.clipboard_html_cache}</body></html>"
         
         # 注入富文本（HTML）和纯文本（LaTeX）
@@ -229,8 +229,6 @@ class HtmlRichTextConverter(QDialog):
         # 立即写入系统剪贴板（同步操作，无延迟，无截断）
         QGuiApplication.clipboard().setMimeData(mime_data)
         
-        print("Success: Clipboard updated via direct Python injection (No truncation)")
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = HtmlRichTextConverter()

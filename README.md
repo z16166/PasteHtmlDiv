@@ -1,6 +1,6 @@
 # PasteHtmlDiv
 
-PasteHtmlDiv 是一款基于 PySide6 (Qt for Python) 构建的桌面小工具。主要作用是将复制自网页（如 Gemini / Google Bard 对话界面）的带有复杂 DOM 和样式结构的 HTML 代码片段进行清理、重排与转换，使其能够以格式完美、排版紧凑的富文本（Rich Text）和原生 LaTeX 代码形式粘贴到 Obsidian、Microsoft Word 等软件中。
+PasteHtmlDiv 是一款基于 PySide6 (Qt for Python) 构建的桌面小工具。主要作用是将复制自网页（如 Gemini / Google Bard 对话界面）的带有复杂 DOM 和样式结构的 HTML 代码片段进行清理、重排与转换，使其能够以格式完美、排版紧凑的富文本（Rich Text）和原生 LaTeX 代码形式粘贴到 Obsidian 等支持 Markdown 和 LaTeX 的软件中。
 
 ## 🎯 核心痛点与功能
 在从 AI 聊天界面复制对话时，经常会遇到以下令人头疼的排版问题：
@@ -13,7 +13,7 @@ PasteHtmlDiv 是一款基于 PySide6 (Qt for Python) 构建的桌面小工具。
 - **底层 DOM 栈式解析**：摒弃了脆弱且容易截断嵌套标签的正则表达式。内置了基于 `html.parser.HTMLParser` 的**栈式提取引擎**。它能精准识别并剥离深层嵌套的 KaTeX 节点，并自动处理 `&gt;` 等 HTML 实体转义字符。
 - **双轨制提取引擎**：
   * **视觉层**：在 UI 视窗中保留完整的 KaTeX DOM 结构，确保用户在软件内看到的是渲染完美、带样式的数学公式。
-  * **剪贴板层**：通过注入 JavaScript `copy` 事件拦截器，在用户点击复制时瞬间将提取出的纯净 `$latex$` 代码填入系统剪贴板，确保 Obsidian 等软件可以原生识别并二次渲染。
+  * **剪贴板层**：通过 Python 直接操作系统剪贴板注入，在用户点击复制时瞬间将提取出的纯净 `$latex$` 代码填入系统剪贴板，确保 Obsidian 等软件可以原生识别并二次渲染。
 
 ## ✨ 最新 UX 优化
 - **窗口控制**：支持标准的窗口最小化、最大化及还原功能。
