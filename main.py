@@ -65,11 +65,30 @@ class HtmlRichTextConverter(QDialog):
             def __init__(self):
                 super().__init__()
                 self.result = []
-                self.math_stack = [] # 记录当前是否在 math 节点内，以及它是 inline 还是 block
+                self.math_stack = [] # 记录当前是否在 math 节点内
+                self.ignore_stack = [] # 记录当前是否在被丢弃的隐藏节点内
             
             def handle_starttag(self, tag, attrs):
                 attr_dict = dict(attrs)
                 
+                # 如果当前属于被系统强行隐藏的垃圾容器（比如 Show thinking 文本、TTS控制栏），就不输出内容并不再递归
+                if self.ignore_stack:
+                    self.ignore_stack.append(tag)
+                    return
+                
+                cls = attr_dict.get('class', '')
+                ignore_tags = {'model-thoughts', 'tts-control', 'bard-avatar'}
+                ignore_classes = {'thoughts-container', 'thoughts-wrapper', 'response-tts-container', 'tts', 'avatar-gutter', 'avatar-container'}
+                
+                # 判断当前标签是否中了垃圾拦截规则
+                is_ignored = tag in ignore_tags
+                if not is_ignored and any(c in ignore_classes for c in cls.split()):
+                    is_ignored = True
+                    
+                if is_ignored:
+                    self.ignore_stack.append(tag)
+                    return
+
                 # 如果我们已经在剥离一个数学节点，只需增加层级栈以跟踪嵌套，不输出原样标签
                 if self.math_stack:
                     self.math_stack.append(tag)
@@ -77,7 +96,6 @@ class HtmlRichTextConverter(QDialog):
                 
                 # 检测是否是新的公式切入点
                 if 'data-math' in attr_dict:
-                    cls = attr_dict.get('class', '')
                     raw_latex = html.unescape(attr_dict['data-math'])
                     if 'math-inline' in cls:
                         self.result.append(f"${raw_latex}$")
@@ -93,6 +111,10 @@ class HtmlRichTextConverter(QDialog):
                 self.result.append(f"<{tag}{attrs_str}>")
 
             def handle_endtag(self, tag):
+                if self.ignore_stack:
+                    if self.ignore_stack[-1] == tag:
+                        self.ignore_stack.pop()
+                    return
                 if self.math_stack:
                     # 匹配到结束标签，出栈。如果栈空了，说明最外层的 math 节点结束了
                     if self.math_stack[-1] == tag:
@@ -101,15 +123,15 @@ class HtmlRichTextConverter(QDialog):
                 self.result.append(f"</{tag}>")
 
             def handle_data(self, data):
-                if not self.math_stack:
+                if not self.math_stack and not self.ignore_stack:
                     self.result.append(data)
                     
             def handle_entityref(self, name):
-                if not self.math_stack:
+                if not self.math_stack and not self.ignore_stack:
                     self.result.append(f"&{name};")
                     
             def handle_charref(self, name):
-                if not self.math_stack:
+                if not self.math_stack and not self.ignore_stack:
                     self.result.append(f"&#{name};")
 
         parser = MathExtractor()
