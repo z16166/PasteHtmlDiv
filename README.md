@@ -9,37 +9,40 @@ PasteHtmlDiv 是一款基于 PySide6 (Qt for Python) 构建的桌面小工具。
 3. **数学公式乱码**：复杂的数学公式（KaTeX 渲染出来的上百个互相嵌套的 `<span>` 字符）一旦脱离原始 CSS 环境，就会变成一长串天书乱码；同时 Markdown 笔记软件（如 Obsidian 的 MathJax）也无法识别这类已经被预渲染的非标准标签代码。
 
 **PasteHtmlDiv 的解决方案：**
-- **强效 CSS 降维打击**：在内部通过 PySide6 的 QWebEngineView 模拟无头浏览器进行渲染。注入了高优先级 (`!important`) 的自定义 CSS，强制剥除多余的辅助占位、头像列占位，消除所有因 Flex/Grid 弹性失效导致的不合理断层空白，恢复干净紧凑的左对齐文档流。
-- **底层 DOM 解析与精确打击**：避免使用脆弱的正则表达式破坏 HTML 的层级结构。内置了一套基于 Python 原生 `HTMLParser` 的栈式解析器，专门瞄准 KaTeX 嵌套矩阵。
+- **强效 CSS 降维打击**：注入高优先级 (`!important`) CSS，强制将 Flex/Grid 弹性布局还原为标准文档流布局。彻底消除头像列、状态栏占用的空白，并将所有因绝对定位失效而露出的 TTS 和“思考过程”容器高度压扁归零。
+- **底层 DOM 栈式解析**：摒弃了脆弱且容易截断嵌套标签的正则表达式。内置了基于 `html.parser.HTMLParser` 的**栈式提取引擎**。它能精准识别并剥离深层嵌套的 KaTeX 节点，并自动处理 `&gt;` 等 HTML 实体转义字符。
 - **双轨制提取引擎**：
-  * **视觉层**：在渲染视窗中，依然给用户呈现原汁原味的、带高亮和复杂层级的数学公式排版，赏心悦目。
-  * **剪贴板层**：在内存中利用解析器剥离无效数学结构，逆向提取储存在 `data-math` 属性里的最纯粹的 LaTeX 原代码（并自动根据行间或独行添加 `$` 和 `$$` 占位符）。当用户点击“全选复制”按钮时，利用 JavaScript 底层 `copy` 事件拦截器，神不知鬼不觉地把这段专属的洁净数据直接塞入操作系统的 HTML 富文本前缀剪贴板流中，让 Obsidian 一秒顺滑识别并重新原生渲染。
+  * **视觉层**：在 UI 视窗中保留完整的 KaTeX DOM 结构，确保用户在软件内看到的是渲染完美、带样式的数学公式。
+  * **剪贴板层**：通过注入 JavaScript `copy` 事件拦截器，在用户点击复制时瞬间将提取出的纯净 `$latex$` 代码填入系统剪贴板，确保 Obsidian 等软件可以原生识别并二次渲染。
+
+## ✨ 最新 UX 优化
+- **窗口控制**：支持标准的窗口最小化、最大化及还原功能。
+- **智能复制按钮**：复制按钮会根据 WebEngine 的渲染状态自动切换。只有当 Chromium 内核完全渲染完毕且 DOM 就绪后才允许点击，确保每次复制的数据都是完整且准确的。
 
 ## 🚀 使用方法
 
-### 1环境配置
-请确保你的电脑上安装了 Python 3.10 及以上版本。之后安装项目的核心依赖 `PySide6` 及 `PySide6-WebEngine`。
+### 1. 环境配置
+请确保你的电脑上安装了 Python 3.10 及以上版本。之后安装项目的核心依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2启动工具
+### 2. 启动工具
 ```bash
 python main.py
 ```
 
-### 3复制与转换
-1. 在浏览器里（如打开 F12 或选中内容）复制包含 `<div>...</div>` 等复杂层级的 HTML 片段文本。
-2. 将其直接粘贴到 PasteHtmlDiv 的左侧输入框中。
-3. 工具的右侧窗口将利用 WebEngine 核心对其进行静默处理和降级渲染预览。
-4. 点击底部的 **“将右侧结果全选并复制到剪贴板”**。
-5. 去到任何编辑器（如 Obsidian，Word 等）里按下 `Ctrl+V`，享受丝滑的纯粹富文本！
+### 3. 复制与转换
+1. 在浏览器里复制包含 `<div>...</div>` 等复杂层级的 HTML 片段文本。
+2. 将其粘贴到 PasteHtmlDiv 的左侧输入框中。
+3. 等待右侧窗口渲染完毕（底部的 **“全选并复制”** 按钮变亮）。
+4. 点击复制按钮，去 Obsidian 或 Word 里 `Ctrl+V` 即可享受丝滑排版。
 
 ## 👨‍💻 技术栈
 - Python 3.x
 - PySide6 (GUI Toolkit)
-- QtWebEngine (Chromium runtime for DOM manipulation and execution)
+- QtWebEngine (Chromium runtime for DOM manipulation)
 
 ## 📄 开源协议
 MIT License
