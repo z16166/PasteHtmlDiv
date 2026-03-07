@@ -33,17 +33,26 @@ class HtmlRichTextConverter(QDialog):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
-        copy_btn = QPushButton("将右侧结果全选并复制到剪贴板")
-        copy_btn.setMinimumHeight(40)
-        copy_btn.clicked.connect(self.copy_output)
-        bottom_layout.addWidget(copy_btn)
+        self.copy_btn = QPushButton("将右侧结果全选并复制到剪贴板")
+        self.copy_btn.setMinimumHeight(40)
+        self.copy_btn.setEnabled(False) # 默认禁用，直到网页渲染完毕
+        self.copy_btn.clicked.connect(self.copy_output)
+        bottom_layout.addWidget(self.copy_btn)
         
         main_layout.addLayout(bottom_layout)
+        
+        # 监听渲染完毕的信号来重新启用复制按钮
+        self.output_view.loadFinished.connect(lambda ok: self.copy_btn.setEnabled(ok))
 
     def update_html(self):
         fragment = self.input_text.toPlainText()
         if not fragment.strip():
             self.output_view.setHtml("")
+            self.copy_btn.setEnabled(False)
+            return
+            
+        # 开始渲染新的 HTML，先禁用复制按钮
+        self.copy_btn.setEnabled(False)
         import re
         import html
         from html.parser import HTMLParser
