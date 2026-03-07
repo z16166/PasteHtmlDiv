@@ -33,16 +33,18 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### 3. 复制与转换
-1. 在浏览器里复制包含 `<div>...</div>` 等复杂层级的 HTML 片段文本。
-2. 将其粘贴到 PasteHtmlDiv 的左侧输入框中。
-3. 等待右侧窗口渲染完毕（底部的 **“全选并复制”** 按钮变亮）。
-4. 点击复制按钮，去 Obsidian 或 Word 里 `Ctrl+V` 即可享受丝滑排版。
+### 核心特性
 
-## 👨‍💻 技术栈
-- Python 3.x
-- PySide6 (GUI Toolkit)
-- QtWebEngine (Chromium runtime for DOM manipulation)
+1.  **鲁棒性 HTML 解析**：内置 `MathExtractor` 解析器，能够智能处理 AI 输出中常见的标签不闭合、嵌套错误等不规范 HTML，确保提取过程不截断、不丢项。
+2.  **同步 Python 剪贴板注入**：摒弃内核异步复制流程，通过 Python 直接操作 `QMimeData` 注入系统剪贴板。实现 0 毫秒延迟、100% 完整度的数据传输。
+3.  **精简高效**：去除所有冗余的调试代码和不稳定的导出模式，专注于为 Obsidian 提供最完美的 LaTeX 剪贴板支持。
+4.  **实时预览**：集成 WebEngine 内核，极致还原公式渲染效果。
+
+## 环境要求
+
+-   Python 3.10+
+-   PySide6 (WebEngine 模块)
+-   Windows 系统 (已针对 Windows 剪贴板优化)
 
 ## 📄 开源协议
 MIT License

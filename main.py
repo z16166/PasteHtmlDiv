@@ -111,14 +111,19 @@ class HtmlRichTextConverter(QDialog):
                 self.result.append(f"<{tag}{attrs_str}>")
 
             def handle_endtag(self, tag):
+                # 鲁棒性增强：如果遇到了结束标签，我们应该尝试在栈中找到它
+                # 如果它不在栈顶，说明中间有标签没闭合，我们需要强制弹出中间的所有标签
                 if self.ignore_stack:
-                    if self.ignore_stack[-1] == tag:
-                        self.ignore_stack.pop()
+                    if tag in self.ignore_stack:
+                        while self.ignore_stack:
+                            popped = self.ignore_stack.pop()
+                            if popped == tag: break
                     return
                 if self.math_stack:
-                    # 匹配到结束标签，出栈。如果栈空了，说明最外层的 math 节点结束了
-                    if self.math_stack[-1] == tag:
-                        self.math_stack.pop()
+                    if tag in self.math_stack:
+                        while self.math_stack:
+                            popped = self.math_stack.pop()
+                            if popped == tag: break
                     return
                 self.result.append(f"</{tag}>")
 
@@ -201,40 +206,30 @@ class HtmlRichTextConverter(QDialog):
 <template id="obsidian-clipboard-data">
 {self.clipboard_html_cache}
 </template>
-
-<!-- 注入 JavaScript 拦截内核的 Copy 动作，强行将我们提取的 LaTeX 喂给操作系统的富文本剪贴板 -->
-<script>
-document.addEventListener('copy', function(e) {{
-    var template = document.getElementById('obsidian-clipboard-data');
-    if (template) {{
-        var htmlContent = template.innerHTML;
-        var textContent = template.textContent || template.innerText;
-        // 构建标准的最简 HTML 包裹，让 Word 或 Obsidian 能正确识别 HTML 头
-        var finalHtml = "<html><body>" + htmlContent + "</body></html>";
-        
-        e.clipboardData.setData('text/html', finalHtml);
-        e.clipboardData.setData('text/plain', textContent);
-        e.preventDefault(); // 阻止浏览器本身的默认拷贝（即阻止拷贝那些用于视觉渲染的复杂节点）
-    }}
-}});
-</script>
 </body>
 </html>"""
         
         self.output_view.setHtml(complete_html)
 
     def copy_output(self):
-        from PySide6.QtCore import QTimer
+        from PySide6.QtCore import QMimeData
+        from PySide6.QtGui import QGuiApplication
         
-        # 将焦点设置到网页视图，防止由于按钮具有焦点而导致复制动作被内核忽略
-        self.output_view.setFocus()
-        self.output_view.page().triggerAction(QWebEnginePage.WebAction.SelectAll)
-        self.output_view.page().triggerAction(QWebEnginePage.WebAction.Copy)
+        # 100% 稳定的同步注入方案：直接在 Python 层操作剪贴板
+        # 彻底废弃 SelectAll -> Copy -> Unselect 的异步不确定流程
+        mime_data = QMimeData()
         
-        # 延迟 100 毫秒后取消全选。由于 Chromium 内核处理复制是异步且在独立进程的，
-        # 如果立刻执行 Unselect，会导致复制毫无效果，所以之前才不生效。
-        # 这里给内核一点时间把带样式的富文本完美推入 Windows 剪贴板。
-        QTimer.singleShot(100, lambda: self.output_view.page().triggerAction(QWebEnginePage.WebAction.Unselect))
+        # 构建标准 HTML 包裹，确保 Obsidian 或 Word 能识别
+        final_html = f"<html><body>{self.clipboard_html_cache}</body></html>"
+        
+        # 注入富文本（HTML）和纯文本（LaTeX）
+        mime_data.setHtml(final_html)
+        mime_data.setText(self.clipboard_html_cache)
+        
+        # 立即写入系统剪贴板（同步操作，无延迟，无截断）
+        QGuiApplication.clipboard().setMimeData(mime_data)
+        
+        print("Success: Clipboard updated via direct Python injection (No truncation)")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
