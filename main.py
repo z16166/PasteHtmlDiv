@@ -67,6 +67,11 @@ class HtmlRichTextConverter(QDialog):
                 self.result = []
                 self.math_stack = [] # 记录当前是否在 math 节点内
                 self.ignore_stack = [] # 记录当前是否在被丢弃的隐藏节点内
+                
+                self.katex_stack = [] # 记录 ChatGPT公式栈
+                self.katex_is_block = False
+                self.katex_in_annotation = False
+                self.katex_latex = []
             
             def handle_starttag(self, tag, attrs):
                 attr_dict = dict(attrs)
@@ -92,6 +97,25 @@ class HtmlRichTextConverter(QDialog):
                 # 如果我们已经在剥离一个数学节点，只需增加层级栈以跟踪嵌套，不输出原样标签
                 if self.math_stack:
                     self.math_stack.append(tag)
+                    return
+                    
+                if self.katex_stack:
+                    self.katex_stack.append(tag)
+                    if tag == 'annotation' and attr_dict.get('encoding') == 'application/x-tex':
+                        self.katex_in_annotation = True
+                    return
+
+                # Check ChatGPT katex
+                classes = cls.split()
+                if 'katex-display' in classes:
+                    self.katex_stack.append(tag)
+                    self.katex_is_block = True
+                    self.katex_latex = []
+                    return
+                elif 'katex' in classes:
+                    self.katex_stack.append(tag)
+                    self.katex_is_block = False
+                    self.katex_latex = []
                     return
                 
                 # 检测是否是新的公式切入点
@@ -119,24 +143,49 @@ class HtmlRichTextConverter(QDialog):
                             popped = self.ignore_stack.pop()
                             if popped == tag: break
                     return
+                    
                 if self.math_stack:
                     if tag in self.math_stack:
                         while self.math_stack:
                             popped = self.math_stack.pop()
                             if popped == tag: break
                     return
+                    
+                if self.katex_stack:
+                    if tag == 'annotation':
+                        self.katex_in_annotation = False
+                        
+                    if tag in self.katex_stack:
+                        while self.katex_stack:
+                            popped = self.katex_stack.pop()
+                            if popped == tag: break
+                            
+                    if not self.katex_stack:
+                        raw_latex = html.unescape("".join(self.katex_latex))
+                        if self.katex_is_block:
+                            self.result.append(f"$$\n{raw_latex}\n$$")
+                        else:
+                            self.result.append(f"${raw_latex}$")
+                    return
+                    
                 self.result.append(f"</{tag}>")
 
             def handle_data(self, data):
-                if not self.math_stack and not self.ignore_stack:
+                if self.katex_in_annotation:
+                    self.katex_latex.append(data)
+                elif not self.math_stack and not self.ignore_stack and not self.katex_stack:
                     self.result.append(data)
                     
             def handle_entityref(self, name):
-                if not self.math_stack and not self.ignore_stack:
+                if self.katex_in_annotation:
+                    self.katex_latex.append(f"&{name};")
+                elif not self.math_stack and not self.ignore_stack and not self.katex_stack:
                     self.result.append(f"&{name};")
                     
             def handle_charref(self, name):
-                if not self.math_stack and not self.ignore_stack:
+                if self.katex_in_annotation:
+                    self.katex_latex.append(f"&#{name};")
+                elif not self.math_stack and not self.ignore_stack and not self.katex_stack:
                     self.result.append(f"&#{name};")
 
         parser = MathExtractor()
