@@ -18,7 +18,7 @@ class HtmlRichTextConverter(QDialog):
         splitter = QSplitter(Qt.Horizontal)
         
         self.input_text = QPlainTextEdit()
-        self.input_text.setPlaceholderText("在这里粘贴包含 <div> 和 </div> 等标签的 HTML 代码片段...")
+        self.input_text.setPlaceholderText("在这里粘贴完整的网页 HTML 源码 (如 Gemini 或 ChatGPT 页面)...")
         self.input_text.textChanged.connect(self.update_html)
         
         # 使用 QWebEngineView 替换 QTextBrowser，完全接管复杂的 DOM和CSS渲染
@@ -53,6 +53,21 @@ class HtmlRichTextConverter(QDialog):
             
         # 开始渲染新的 HTML，先禁用复制按钮
         self.copy_btn.setEnabled(False)
+
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(fragment, 'html.parser')
+        
+        gemini_div = soup.find('div', id='chat-history')
+        if gemini_div:
+            fragment = gemini_div.decode_contents()
+        else:
+            chatgpt_div = soup.find('div', id='thread')
+            if chatgpt_div:
+                bottom_container = chatgpt_div.find(id='thread-bottom-container')
+                if bottom_container:
+                    bottom_container.decompose()
+                fragment = chatgpt_div.decode_contents()
+
         import re
         import html
         from html.parser import HTMLParser
