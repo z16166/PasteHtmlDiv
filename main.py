@@ -59,14 +59,60 @@ class HtmlRichTextConverter(QDialog):
         
         gemini_div = soup.find('div', id='chat-history')
         if gemini_div:
-            fragment = gemini_div.decode_contents()
+            container = gemini_div
         else:
             chatgpt_div = soup.find('div', id='thread')
             if chatgpt_div:
                 bottom_container = chatgpt_div.find(id='thread-bottom-container')
                 if bottom_container:
                     bottom_container.decompose()
-                fragment = chatgpt_div.decode_contents()
+                container = chatgpt_div
+            else:
+                container = None
+
+        if container:
+            # 提前处理代码块：将其转换为标准的 <pre><code class="language-xxx">...</code></pre> 格式
+            for pre in container.find_all('pre'):
+                language = ""
+                # 尝试查找 ChatGPT 的语言头部
+                header_div = pre.find('div', class_=lambda c: c and 'items-center' in c and 'justify-between' in c)
+                if header_div:
+                    lang_div = header_div.find('div', class_=lambda c: c and 'justify-self-start' in c)
+                    if lang_div:
+                        language = lang_div.get_text(strip=True)
+                        
+                # 尝试查找 Gemini 的语言类名
+                code_tag = pre.find('code')
+                if not language and code_tag:
+                    classes = code_tag.get('class', [])
+                    for c in classes:
+                        if c.startswith('language-'):
+                            language = c[9:]
+                            break
+
+                # ChatGPT 使用了 CodeMirror，每一行可能是 span 然后用 <br> 结尾。将其替换为 \n 才能使用 get_text 提取纯文本
+                for br in pre.find_all('br'):
+                    br.replace_with('\n')
+                    
+                # 从 DOM 树中移除 ChatGPT 代码块自带的复制按钮/标题头部，防止被当做代码混入文本
+                if header_div:
+                    header_div.decompose()
+                    
+                raw_code = pre.get_text()
+
+                new_pre = soup.new_tag('pre')
+                new_code = soup.new_tag('code')
+                if language:
+                    new_code['class'] = f"language-{language.lower()}"
+                    
+                new_code.string = raw_code
+                new_pre.append(new_code)
+                
+                pre.replace_with(new_pre)
+
+            fragment = container.decode_contents()
+        else:
+            fragment = ""
 
         import re
         import html
@@ -259,6 +305,40 @@ class HtmlRichTextConverter(QDialog):
         body {{
             color: #202124 !important;
             background: #ffffff !important;
+        }}
+        /* 代码块基础样式 */
+        pre {{
+            background-color: #f6f8fa;
+            border-radius: 6px;
+            padding: 16px;
+            overflow: auto;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+            font-size: 85%;
+            line-height: 1.45;
+            margin-top: 0;
+            margin-bottom: 16px;
+            border: 1px solid #d0d7de;
+        }}
+        pre code {{
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            display: inline;
+            max-width: auto;
+            border: 0;
+            margin: 0;
+            overflow: visible;
+            line-height: inherit;
+            word-wrap: normal;
+        }}
+        /* 行内代码样式 */
+        code {{
+            background-color: rgba(175,184,193,0.2);
+            border-radius: 6px;
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
         }}
     </style>
 </head>
