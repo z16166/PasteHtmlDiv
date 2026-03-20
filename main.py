@@ -527,11 +527,15 @@ class HtmlRichTextConverter(QDialog):
                 if ann: data_math = ann.get_text().strip()
             
             if data_math:
+                # 修复核心：移除公式内部的物理换行。
+                # 很多解析器（如 Obsidian）不支持在 $...$ 内部换行。
+                clean_math = data_math.replace('\n', ' ').replace('\r', ' ')
+                
                 is_block = ('math-block' in math_el.get('class', []) or math_el.name == 'div')
                 if is_block:
-                    replacement = f"\n$$\n{data_math}\n$$\n"
+                    replacement = f"\n$$\n{clean_math.strip()}\n$$\n"
                 else:
-                    replacement = f"${data_math}$"
+                    replacement = f"${clean_math.strip()}$"
                 
                 # 使用占位符防止 markdownify 转义 $ 和 _
                 proto_id = f"MATHPROTO{len(math_prot_store)}MATH"
