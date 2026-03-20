@@ -461,6 +461,21 @@ class HtmlRichTextConverter(QDialog):
         # 尝试只处理 body 内容
         target = soup.body if soup.body else soup
         
+        # 2.1 会话层深度提取：针对特定平台（Gemini/ChatGPT）进行精准切片
+        # 逻辑 1：Gemini 会话历史提取
+        chat_history = target.find('div', id='chat-history')
+        if chat_history:
+            target = chat_history
+        else:
+            # 逻辑 2：ChatGPT 会话历史提取
+            thread = target.find('div', id='thread')
+            if thread:
+                # 剔除底部的干扰容器
+                bottom = thread.find('div', id='thread-bottom-container')
+                if bottom:
+                    bottom.decompose()
+                target = thread
+        
         # 3. 深度清理：移除所有非内容型标签 (如脚本、样式、导航、页脚等)
         # 将 button 也加入清理列表，因为它们通常是 UI 交互元素（如“复制代码”、“显示思维过程”）
         for tag in target(['script', 'style', 'template', 'noscript', 'header', 'footer', 'nav', 'svg', 'aside', 'button']):
